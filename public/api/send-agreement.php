@@ -29,42 +29,57 @@ $amount = $isFullPayment ? '29,899' : '15,000';
 $paymentUrl = $isFullPayment ? 'https://rzp.io/rzp/M32rMCs9' : 'https://rzp.io/rzp/db1qFEB8';
 $paymentStageText = $isFullPayment ? 'full enrollment' : 'first installment';
 
-// 1. SAVE LEAD DATA TO CSV & JSON (ALL LEADS SAVED IRRESPECTIVE OF PAYMENT)
+// 1. SAVE LEAD DATA TO CSV & JSON (THREAD-SAFE WITH FILE LOCKING FOR HIGH CONCURRENCY)
 $dataDir = __DIR__ . '/data';
 if (!file_exists($dataDir)) {
     @mkdir($dataDir, 0755, true);
 }
 
-// Save to CSV
+// Save to CSV with exclusive lock
 $csvFile = $dataDir . '/leads.csv';
 $isNewFile = !file_exists($csvFile);
 $fp = @fopen($csvFile, 'a');
 if ($fp) {
-    if ($isNewFile) {
-        fputcsv($fp, ['Timestamp', 'Name', 'Email', 'Phone', 'City', 'Plan', 'Amount', 'IP']);
+    if (flock($fp, LOCK_EX)) {
+        if ($isNewFile) {
+            fputcsv($fp, ['Timestamp', 'Name', 'Email', 'Phone', 'City', 'Plan', 'Amount', 'IP']);
+        }
+        fputcsv($fp, [$timestamp, $name, $email, $phone, $city, $plan, $amount, $ip]);
+        fflush($fp);
+        flock($fp, LOCK_UN);
     }
-    fputcsv($fp, [$timestamp, $name, $email, $phone, $city, $plan, $amount, $ip]);
     fclose($fp);
 }
 
-// Save to JSON
+// Save to JSON with exclusive lock
 $jsonFile = $dataDir . '/leads.json';
-$leads = [];
-if (file_exists($jsonFile)) {
-    $existing = @file_get_contents($jsonFile);
-    $leads = json_decode($existing, true) ?: [];
+$fpJson = @fopen($jsonFile, 'c+');
+if ($fpJson) {
+    if (flock($fpJson, LOCK_EX)) {
+        $fileSize = filesize($jsonFile);
+        $leads = [];
+        if ($fileSize > 0) {
+            $existing = fread($fpJson, $fileSize);
+            $leads = json_decode($existing, true) ?: [];
+        }
+        $leads[] = [
+            'timestamp' => $timestamp,
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'city' => $city,
+            'plan' => $plan,
+            'amount' => $amount,
+            'ip' => $ip
+        ];
+        ftruncate($fpJson, 0);
+        rewind($fpJson);
+        fwrite($fpJson, json_encode($leads, JSON_PRETTY_PRINT));
+        fflush($fpJson);
+        flock($fpJson, LOCK_UN);
+    }
+    fclose($fpJson);
 }
-$leads[] = [
-    'timestamp' => $timestamp,
-    'name' => $name,
-    'email' => $email,
-    'phone' => $phone,
-    'city' => $city,
-    'plan' => $plan,
-    'amount' => $amount,
-    'ip' => $ip
-];
-@file_put_contents($jsonFile, json_encode($leads, JSON_PRETTY_PRINT));
 
 // 2. DISPATCH TO GOOGLE FORM (TRIGGERS LINKED GOOGLE APPS SCRIPT FOR WHATSAPP & EMAIL)
 function triggerGoogleForm($name, $email, $phone, $plan) {
