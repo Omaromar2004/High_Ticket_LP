@@ -66,7 +66,53 @@ $leads[] = [
 ];
 @file_put_contents($jsonFile, json_encode($leads, JSON_PRETTY_PRINT));
 
-// 2. HTTPS REST API SENDER VIA ZEPTOMAIL (100% RELIABLE ON HOSTINGER)
+// 2. DISPATCH TO GOOGLE FORM (TRIGGERS LINKED GOOGLE APPS SCRIPT FOR WHATSAPP & EMAIL)
+function triggerGoogleForm($name, $email, $phone, $plan) {
+    $formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/formResponse';
+    $amountOption = ($plan === 'full') ? '29,899/- [Full Payment]' : '15,000/-[hafl Payment]';
+
+    $postData = http_build_query([
+        'entry.813229620' => $name,
+        'entry.199077193' => 'Male',
+        'entry.224170834' => $email,
+        'entry.1890214637' => $phone,
+        'entry.424963998' => '1000/day',
+        'entry.873081694' => 'Right Now, Inshallah',
+        'entry.1098580725' => $amountOption,
+    ]);
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($formUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        @curl_exec($ch);
+        @curl_close($ch);
+    } else {
+        $opts = [
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => $postData,
+                'timeout' => 6
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ];
+        $context = stream_context_create($opts);
+        @file_get_contents($formUrl, false, $context);
+    }
+}
+
+// Trigger Google Form in background
+@triggerGoogleForm($name, $email, $phone, $plan);
+
+// 3. HTTPS REST API SENDER VIA ZEPTOMAIL (100% RELIABLE ON HOSTINGER)
 function sendZeptoMail($toEmail, $toName, $subject, $htmlBody) {
     $token = 'PHtE6r1YRu7r3mAm8BAJtKe6QMKtPI4n+OpufVZOsYpBC6QBTU1d/d4okGSwrRcvB/BCEPHKy4Jo4r+f5erXcT65NmcfXGqyqK3sx/VYSPOZsbq6x00etVsdfk3eUI/scdRq3CDfv9nbNA==';
     $payload = [

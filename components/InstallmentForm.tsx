@@ -152,6 +152,33 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
         }),
         keepalive: true,
       }).catch((e) => console.log('Direct Zepto notice:', e));
+
+      // 3. Direct Google Form trigger to activate user's Apps Script / WhatsApp / Email automation
+      try {
+        const gformData = new URLSearchParams();
+        gformData.append('entry.813229620', payload.name);
+        gformData.append('entry.199077193', 'Male');
+        gformData.append('entry.224170834', payload.email);
+        gformData.append('entry.1890214637', payload.phone);
+        gformData.append('entry.424963998', '1000/day');
+        gformData.append('entry.873081694', 'Right Now, Inshallah');
+        gformData.append(
+          'entry.1098580725',
+          payload.plan === 'full' ? '29,899/- [Full Payment]' : '15,000/-[hafl Payment]'
+        );
+
+        fetch('https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/formResponse', {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: gformData.toString(),
+          keepalive: true,
+        }).catch((e) => console.log('Google form sync notice:', e));
+      } catch (gfErr) {
+        console.log('Google form error:', gfErr);
+      }
     } catch (err) {
       console.error('Email dispatch error:', err);
     }
