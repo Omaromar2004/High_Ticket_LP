@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle2,
   ShieldCheck,
@@ -17,7 +17,8 @@ import {
   HelpCircle,
   X,
   ExternalLink,
-  Check
+  Check,
+  ScrollText
 } from 'lucide-react';
 
 interface InstallmentFormProps {
@@ -41,9 +42,9 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
     city: false,
   });
 
-  const [loading, setLoading] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState<any | null>(null);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [agreementAccepted, setAgreementAccepted] = useState(true);
+  const [redirecting, setRedirecting] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
 
   // Validation logic
@@ -57,18 +58,15 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
 
   const amountToPay = selectedPlan === 'installment' ? 15000 : 29899;
   const formattedAmount = amountToPay.toLocaleString('en-IN');
+  const razorpayUrl = selectedPlan === 'installment'
+    ? 'https://rzp.io/rzp/db1qFEB8'
+    : 'https://rzp.io/rzp/M32rMCs9';
 
-  // Load Razorpay Script dynamically
-  useEffect(() => {
-    const scriptId = 'razorpay-checkout-script';
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
+  const todayFormatted = new Date().toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -78,128 +76,58 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const sendAgreementEmail = async (payload: any) => {
-    setEmailSending(true);
+  const triggerAgreementEmail = (payload: any) => {
     try {
-      let res = await fetch('/api/send-agreement.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        res = await fetch('/api/send-agreement', {
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        navigator.sendBeacon('/api/send-agreement.php', blob);
+      } else {
+        fetch('/api/send-agreement.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {});
       }
-      const data = await res.json();
-      console.log('Agreement email result:', data);
     } catch (err) {
-      console.error('Error triggering agreement email:', err);
-    } finally {
-      setEmailSending(false);
+      console.error('Email dispatch background error:', err);
     }
   };
 
-  const handlePayNow = async (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ name: true, email: true, phone: true, city: true });
 
     if (!isFormValid) return;
 
-    setLoading(true);
+    // Open the official Agreement Review modal
+    setShowAgreementModal(true);
+  };
 
-    try {
-      const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_default';
+  const handleAcceptAndProceedToPayment = () => {
+    if (!agreementAccepted) return;
 
-      if (typeof window !== 'undefined' && (window as any).Razorpay) {
-        const options = {
-          key: razorpayKey,
-          amount: amountToPay * 100, // in paise
-          currency: 'INR',
-          name: 'FIQRTAALIM',
-          description:
-            selectedPlan === 'installment'
-              ? 'Partnership Seat Lock (Part 1 Installment) - ₹15,000'
-              : 'Partnership Full Enrollment - ₹29,899',
-          image: 'https://fiqrtaalim.com/logo.png',
-          prefill: {
-            name: formData.name.trim(),
-            email: formData.email.trim(),
-            contact: cleanPhone,
-          },
-          notes: {
-            city: formData.city.trim(),
-            plan_type: selectedPlan,
-            program: 'Fiqrtaalim Partnership Programme',
-          },
-          theme: {
-            color: '#E5BA6A',
-            backdrop_color: 'rgba(12, 11, 10, 0.95)',
-          },
-          handler: function (response: any) {
-            setLoading(false);
-            const successPayload = {
-              paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id || 'DIR-' + Date.now(),
-              amount: formattedAmount,
-              plan: selectedPlan,
-              name: formData.name.trim(),
-              email: formData.email.trim(),
-              phone: cleanPhone,
-              city: formData.city.trim(),
-              date: new Date().toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              }),
-            };
-            setPaymentSuccess(successPayload);
-            sendAgreementEmail(successPayload);
-            if (onSuccess) onSuccess(successPayload);
-          },
-          modal: {
-            ondismiss: function () {
-              setLoading(false);
-            },
-          },
-        };
+    setRedirecting(true);
 
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (resp: any) {
-          setLoading(false);
-          alert('Payment was not completed: ' + (resp.error?.description || 'Please try again.'));
-        });
-        rzp.open();
-      } else {
-        // Fallback simulation / direct modal for preview
-        setTimeout(() => {
-          setLoading(false);
-          const fallbackPayload = {
-            paymentId: 'pay_demo_' + Math.random().toString(36).substring(7).toUpperCase(),
-            orderId: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
-            amount: formattedAmount,
-            plan: selectedPlan,
-            name: formData.name.trim(),
-            email: formData.email.trim(),
-            phone: cleanPhone,
-            city: formData.city.trim(),
-            date: new Date().toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            }),
-          };
-          setPaymentSuccess(fallbackPayload);
-          sendAgreementEmail(fallbackPayload);
-          if (onSuccess) onSuccess(fallbackPayload);
-        }, 1200);
-      }
-    } catch (err) {
-      setLoading(false);
-      console.error('Razorpay invocation error:', err);
-    }
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: cleanPhone,
+      city: formData.city.trim(),
+      plan: selectedPlan,
+      amount: formattedAmount,
+      date: todayFormatted,
+    };
+
+    // Trigger confirmation email in background
+    triggerAgreementEmail(payload);
+
+    if (onSuccess) onSuccess(payload);
+
+    // Redirect directly to the Razorpay Payment Link
+    setTimeout(() => {
+      window.location.href = razorpayUrl;
+    }, 400);
   };
 
   return (
@@ -267,7 +195,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
       </div>
 
       {/* Interactive Form */}
-      <form onSubmit={handlePayNow} className="space-y-3">
+      <form onSubmit={handleFormSubmit} className="space-y-3">
         {/* Full Name */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-[#F5EFE6]/80 flex items-center justify-between">
@@ -300,7 +228,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
           </div>
           {touched.name && !isNameValid && (
             <p className="text-[10px] text-red-400 flex items-center gap-1 pl-1">
-              <AlertCircle className="w-2.5 h-2.5" /> Please enter your name.
+              <AlertCircle className="w-2.5 h-2.5" /> Please enter your full name.
             </p>
           )}
         </div>
@@ -308,7 +236,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
         {/* Email Address */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-[#F5EFE6]/80 flex items-center justify-between">
-            <span>Email Address (Agreement sent here immediately)</span>
+            <span>Email Address (Agreement sent here)</span>
             {isEmailValid && (
               <span className="text-[#10B981] text-[10px] flex items-center gap-1 font-semibold">
                 <CheckCircle2 className="w-3 h-3" /> Valid
@@ -342,7 +270,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
           )}
         </div>
 
-        {/* WhatsApp & City in 2-column */}
+        {/* WhatsApp & City */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* WhatsApp Phone */}
           <div className="space-y-1">
@@ -423,37 +351,27 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
         <div className="pt-2">
           <button
             type="submit"
-            disabled={loading}
             className={`w-full py-3.5 px-5 rounded-xl font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-0.5 shadow-xl relative overflow-hidden ${
               isFormValid
                 ? 'btn-shiny text-[#0A0908] cursor-pointer hover:scale-[1.01] active:scale-[0.99] shadow-[0_0_25px_rgba(230,202,133,0.4)]'
                 : 'bg-[#221D17] border border-[#E6CA85]/40 text-[#F5EFE6]/60 hover:text-[#FFFDF8] cursor-pointer'
             }`}
           >
-            {loading ? (
-              <div className="flex items-center gap-2 py-1 text-[#0A0908]">
-                <div className="w-4 h-4 border-2 border-[#0A0908] border-t-transparent rounded-full animate-spin"></div>
-                <span>Securing Your Seat Insha&apos;Allah...</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2">
-                  <span>
-                    {isFormValid
-                      ? `Pay ₹${formattedAmount} Now`
-                      : `Fill Details to Pay ₹${formattedAmount}`}
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-                <span
-                  className={`text-[9px] font-medium tracking-wide ${
-                    isFormValid ? 'text-[#0A0908]/85' : 'text-[#F5EFE6]/40'
-                  }`}
-                >
-                  Razorpay Secured · Agreement Emailed Instantly
-                </span>
-              </>
-            )}
+            <div className="flex items-center gap-2">
+              <span>
+                {isFormValid
+                  ? `Review Agreement & Pay ₹${formattedAmount}`
+                  : `Fill Details to Pay ₹${formattedAmount}`}
+              </span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+            <span
+              className={`text-[9px] font-medium tracking-wide ${
+                isFormValid ? 'text-[#0A0908]/85' : 'text-[#F5EFE6]/40'
+              }`}
+            >
+              Includes Formal Legal Agreement · Razorpay Secured
+            </span>
           </button>
         </div>
 
@@ -465,7 +383,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
           </span>
           <span className="flex items-center gap-1">
             <Lock className="w-3 h-3 text-[#E6CA85]" />
-            Instant PDF Agreement
+            Official PDF Agreement
           </span>
           <button
             type="button"
@@ -476,6 +394,197 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
           </button>
         </div>
       </form>
+
+      {/* OFFICIAL LEGAL AGREEMENT MODAL */}
+      {showAgreementModal && (
+        <div className="fixed inset-0 z-50 bg-[#0A0908]/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-[#14110C] border border-[#E6CA85]/40 rounded-2xl max-w-xl w-full my-auto flex flex-col max-h-[92vh] shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_40px_rgba(230,202,133,0.25)] relative overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="bg-[#1C1712] border-b border-[#E6CA85]/30 p-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#E6CA85]/15 border border-[#E6CA85]/40 flex items-center justify-center text-[#E6CA85]">
+                  <ScrollText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-[#FFFDF8] tracking-tight uppercase">
+                    Official Service Agreement
+                  </h3>
+                  <p className="text-[10px] text-[#E6CA85]">
+                    FIQRTAALIM Partnership Programme
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAgreementModal(false)}
+                className="text-[#F5EFE6]/60 hover:text-[#FFFDF8] p-1.5 rounded-lg hover:bg-[#2A231B] transition-colors"
+                aria-label="Close Agreement"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Agreement Document */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-[#F5EFE6]/90 bg-[#120F0B]/80 select-text">
+              {/* Bismillah Header */}
+              <div className="text-center pb-2 border-b border-[#E6CA85]/20 space-y-1">
+                <p className="ayah text-sm sm:text-base text-[#E6CA85]">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
+                <h2 className="text-sm sm:text-base font-serif font-bold text-[#FFFDF8] uppercase tracking-wider">
+                  FIQRTAALIM SERVICE AGREEMENT
+                </h2>
+                <p className="text-[10px] text-[#F5EFE6]/60">Date of Agreement: <strong>{todayFormatted}</strong></p>
+              </div>
+
+              {/* Parties */}
+              <div className="bg-[#1A1510] p-3 rounded-xl border border-[#E6CA85]/20 space-y-1 text-[11px]">
+                <p><strong>Service Provider:</strong> FIQRTAALIM, Mysuru, Karnataka, India.</p>
+                <p><strong>Client:</strong> <strong className="text-[#E6CA85]">{formData.name}</strong></p>
+                <p className="text-[10px] text-[#F5EFE6]/70">
+                  Email: {formData.email} · Phone: +91 {cleanPhone} · Delivery City: {formData.city}
+                </p>
+              </div>
+
+              {/* Section 1: Scope of Services */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>1. Scope of Services & Deliverables</span>
+                </h4>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#F5EFE6]/80">
+                  <li>Designing and building a custom high-converting Shopify website.</li>
+                  <li>Setting up Instagram & Facebook business accounts with Meta Pixel tracking.</li>
+                  <li>Setting up WhatsApp Business account & sales automation funnels.</li>
+                  <li>Complete integration of Razorpay payment gateway and Shiprocket logistics.</li>
+                  <li>1-to-1 dedicated mentorship sessions until the Client achieves confirmed sales.</li>
+                  <li>
+                    <strong className="text-[#FFFDF8]">₹25,000 Opening Physical Inventory Kit (Included Free):</strong>
+                    <ul className="list-circle pl-4 mt-0.5 space-y-0.5 text-[#E6CA85]/90">
+                      <li>25 units of Tayammum Kits (Complete boxed set)</li>
+                      <li>25 sets of Traceable Islamic Kids Activity Books</li>
+                      <li>10 sets Hindi Dua Stickers + 10 sets English Dua Stickers</li>
+                      <li>Branded packaging material and free cargo dispatch to {formData.city}.</li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Section 2: Fees & Payment Terms */}
+              <div className="space-y-1.5 bg-[#17130E] p-3 rounded-xl border border-[#E6CA85]/25">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  2. Fees & Payment Terms ({selectedPlan === 'installment' ? 'Half Payment' : 'Full Payment'})
+                </h4>
+                <p className="text-[11px] text-[#F5EFE6]/90">
+                  {selectedPlan === 'installment' ? (
+                    <>
+                      The Client agrees to pay a total service fee of ₹29,899/-. The payment is structured in two stages:
+                      <br />
+                      • <strong className="text-[#10B981]">Part 1 Payment: ₹15,000/-</strong> paid today upon signing to confirm seat and initiate dispatch of the ₹25,000 inventory kit.
+                      <br />
+                      • <strong>Part 2 Remaining Balance: ₹14,899/-</strong> payable prior to the live ad campaign launch.
+                    </>
+                  ) : (
+                    <>
+                      The Client agrees to pay a one-time service fee of <strong className="text-[#10B981]">₹29,899/- (Full Payment)</strong>. This includes complete setup, mentorship until confirmed sales, and ₹25,000 opening product inventory.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {/* Section 3: Guarantee & Refund Policy */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  3. 80% Money-Back Service Guarantee
+                </h4>
+                <p className="text-[11px] text-[#F5EFE6]/80">
+                  The Service Provider guarantees 1-to-1 mentorship until the Client achieves confirmed sales. If the Service Provider fails to assist the Client in achieving sales after all instructed strategies are implemented, the Client is entitled to an 80% refund of the service fee.
+                </p>
+              </div>
+
+              {/* Section 4: Acknowledgment & Signature Seal */}
+              <div className="pt-2 border-t border-[#E6CA85]/20 flex items-center justify-between text-[11px]">
+                <div>
+                  <p className="font-bold text-[#FFFDF8]">FIQRTAALIM</p>
+                  <p className="text-[10px] text-[#F5EFE6]/60">Mysuru, Karnataka, India</p>
+                  <div className="mt-1">
+                    <svg className="h-7 w-auto" viewBox="0 0 160 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M 15 45 Q 30 10, 45 40 Q 55 5, 65 48 Q 75 25, 85 45 Q 95 15, 110 45 Q 130 40, 150 48" stroke="#E6CA85" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M 30 52 C 50 50, 85 48, 125 52" stroke="#E6CA85" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <p className="text-[10px] font-bold text-[#E6CA85] uppercase mt-0.5">Mohammed Omar</p>
+                  <p className="text-[9px] text-[#F5EFE6]/60">Co-Founder & CEO, FIQRTAALIM</p>
+                </div>
+                <div className="text-right border border-[#E6CA85]/30 rounded-lg p-2 bg-[#17130E]/60">
+                  <span className="text-[9px] font-bold text-[#10B981] uppercase block">
+                    ✓ Verified Legal Amanah
+                  </span>
+                  <span className="text-[10px] text-[#F5EFE6]/80 font-mono">
+                    Client: {formData.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Action Footer */}
+            <div className="bg-[#1C1712] border-t border-[#E6CA85]/30 p-4 shrink-0 space-y-3">
+              {/* Acceptance Checkbox */}
+              <label className="flex items-start gap-2.5 cursor-pointer text-[11px] text-[#F5EFE6]/90 select-none">
+                <input
+                  type="checkbox"
+                  checked={agreementAccepted}
+                  onChange={(e) => setAgreementAccepted(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-[#E6CA85] text-[#E6CA85] focus:ring-0 focus:ring-offset-0 bg-[#0C0B09] cursor-pointer"
+                />
+                <span>
+                  I, <strong className="text-[#E6CA85]">{formData.name}</strong>, have read and agreed to all terms of this Service Agreement and authorize payment of <strong className="text-[#10B981]">₹{formattedAmount}</strong>.
+                </span>
+              </label>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAgreementModal(false)}
+                  className="py-2.5 px-4 rounded-xl border border-[#E6CA85]/30 text-[#F5EFE6]/70 hover:text-[#FFFDF8] hover:bg-[#261F17] text-xs font-semibold transition-colors order-2 sm:order-1 text-center"
+                >
+                  ← Edit Details
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!agreementAccepted || redirecting}
+                  onClick={handleAcceptAndProceedToPayment}
+                  className={`flex-1 py-3 px-5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 shadow-xl order-1 sm:order-2 ${
+                    agreementAccepted && !redirecting
+                      ? 'btn-shiny text-[#0A0908] cursor-pointer hover:scale-[1.01] active:scale-[0.99] shadow-[0_0_20px_rgba(230,202,133,0.4)]'
+                      : 'bg-[#2A231B] text-[#F5EFE6]/40 cursor-not-allowed'
+                  }`}
+                >
+                  {redirecting ? (
+                    <div className="flex items-center gap-2 text-[#0A0908]">
+                      <div className="w-4 h-4 border-2 border-[#0A0908] border-t-transparent rounded-full animate-spin"></div>
+                      <span>Redirecting to Razorpay...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span>Accept & Pay ₹{formattedAmount} via Razorpay</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-center gap-4 text-[9px] text-[#F5EFE6]/50">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5 text-[#E6CA85]" /> 256-Bit SSL Encrypted
+                </span>
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="w-2.5 h-2.5 text-[#10B981]" /> Official PDF Copy Emailed
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Support / Help Modal */}
       {showSupportModal && (
@@ -491,7 +600,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
               <p className="ayah text-sm text-[#E6CA85]">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
               <h3 className="text-sm font-bold text-[#FFFDF8]">Fiqrtaalim Support Desk</h3>
               <p className="text-[11px] text-[#F5EFE6]/70">
-                Have questions about the payment options or stock dispatch?
+                Have questions about payment options or inventory dispatch?
               </p>
             </div>
             <div className="space-y-2 text-[11px] text-[#F5EFE6]/85 mb-5">
@@ -506,7 +615,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
               </p>
             </div>
             <a
-              href="https://wa.me/919999999999?text=Assalamu%20Alaikum%20Fiqrtaalim%20Team,%20I%20have%20a%20question%20regarding%20the%20Partnership%20enrollment."
+              href="https://wa.me/919945891650?text=Assalamu%20Alaikum%20Fiqrtaalim%20Team,%20I%20have%20a%20question%20regarding%20the%20Partnership%20enrollment."
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
@@ -514,63 +623,6 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
               <Phone className="w-3.5 h-3.5" />
               WhatsApp Help Desk
             </a>
-          </div>
-        </div>
-      )}
-
-      {/* Success Modal */}
-      {paymentSuccess && (
-        <div className="fixed inset-0 z-50 bg-[#0A0908]/90 backdrop-blur-lg flex items-center justify-center p-4">
-          <div className="bg-[#181410] border-2 border-[#E6CA85] rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl animate-in fade-in zoom-in duration-300">
-            <p className="ayah text-sm text-[#E6CA85]">الْحَمْدُ لِلَّٰهِ</p>
-            <div className="w-12 h-12 rounded-full bg-[#10B981]/20 border border-[#10B981] flex items-center justify-center text-[#10B981] mx-auto">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl font-serif font-bold text-[#FFFDF8]">
-              BarakAllah! Seat Confirmed
-            </h2>
-            <p className="text-xs text-[#F5EFE6]/80 max-w-xs mx-auto">
-              Alhamdulillah, your seat is locked for <strong>{paymentSuccess.name}</strong>. Your ₹25,000 opening stock is being prepared for dispatch to <strong>{paymentSuccess.city}</strong>.
-            </p>
-
-            <div className="p-3 rounded-xl bg-[#221D17] border border-[#E6CA85]/25 text-xs space-y-1.5 text-left">
-              <div className="flex justify-between text-[#F5EFE6]/75">
-                <span>Payment ID:</span>
-                <span className="font-mono text-[#E6CA85]">{paymentSuccess.paymentId}</span>
-              </div>
-              <div className="flex justify-between text-[#F5EFE6]/75">
-                <span>Amount Paid:</span>
-                <span className="text-[#10B981] font-bold">
-                  ₹{paymentSuccess.amount}
-                </span>
-              </div>
-              <div className="flex justify-between text-[#F5EFE6]/75">
-                <span>Legal Agreement:</span>
-                <span className="text-[#E6CA85] flex items-center gap-1 font-medium">
-                  <FileText className="w-3 h-3" /> Emailed to {paymentSuccess.email}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <a
-                href={`https://wa.me/919999999999?text=Assalamu%20Alaikum%20Fiqrtaalim%20Team,%20I%20have%20completed%20my%20seat%20lock%20payment%20(Payment%20ID:%20${paymentSuccess.paymentId})%20for%20${encodeURIComponent(
-                  paymentSuccess.name
-                )}.%20Please%20assign%20my%20account%20manager.`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#10B981] to-[#059669] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
-              >
-                <span>Connect With Dedicated Account Manager</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-              <button
-                onClick={() => (window.location.href = '/')}
-                className="w-full py-1 text-xs text-[#F5EFE6]/50 hover:text-[#FFFDF8]"
-              >
-                Back to Homepage
-              </button>
-            </div>
           </div>
         </div>
       )}

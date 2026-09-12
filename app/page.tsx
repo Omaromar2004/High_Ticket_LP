@@ -187,9 +187,7 @@ export default function FiqrtaalimPartnershipPage() {
           <span className="nav__note">Partnership Programme · Anniversary Batch</span>
           <a
             className="btn btn--sm btn-shiny"
-            href="https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/viewform"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/installment/"
           >
             Book your seat now
           </a>
@@ -292,9 +290,7 @@ export default function FiqrtaalimPartnershipPage() {
           <div className="hero__cta rv">
             <a
               className="btn btn--wide btn-shiny"
-              href="https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/viewform"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/installment/"
             >
               Book your seat now — ₹29,899
             </a>
@@ -533,9 +529,7 @@ export default function FiqrtaalimPartnershipPage() {
             >
               <a
                 className="btn btn--wide btn-shiny"
-                href="https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/viewform"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/installment/"
               >
                 Book your seat now — ₹29,899
               </a>
@@ -834,9 +828,7 @@ export default function FiqrtaalimPartnershipPage() {
           <div className="center" style={{ marginTop: '42px' }}>
             <a
               className="btn rv btn-shiny"
-              href="https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/viewform"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/installment/"
             >
               Book your seat now — ₹29,899
             </a>
@@ -1036,9 +1028,7 @@ export default function FiqrtaalimPartnershipPage() {
           >
             <a
               className="btn btn--wide rv btn-shiny"
-              href="https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/viewform"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/installment/"
             >
               Book your seat now — ₹29,899
             </a>
@@ -1118,9 +1108,7 @@ export default function FiqrtaalimPartnershipPage() {
         </div>
         <a
           className="btn btn--sm btn-shiny"
-          href="https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/viewform"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/installment/"
         >
           Book your seat now
         </a>
