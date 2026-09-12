@@ -1,19 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import puppeteer from 'puppeteer-core';
-import fs from 'fs';
 import { ZEPTO_CONFIG, getAgreementHTML, getWelcomeEmailHTML } from '@/lib/agreement-email';
-
-function getExecutablePath() {
-  const edgePath64 = 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe';
-  const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-  const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-
-  if (fs.existsSync(edgePath64)) return edgePath64;
-  if (fs.existsSync(edgePath)) return edgePath;
-  if (fs.existsSync(chromePath)) return chromePath;
-  throw new Error('No browser executable found on system');
-}
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +13,8 @@ export async function POST(req: Request) {
 
     const cleanName = name.trim();
     const cleanEmail = email.trim();
+    const cleanPhone = phone ? phone.trim() : '';
+    const cleanCity = city ? city.trim() : '';
     const isFull = plan === 'full';
     const amountStr = isFull ? '29,899' : '15,000';
 
@@ -35,58 +24,50 @@ export async function POST(req: Request) {
       year: 'numeric'
     });
 
-    // 1. Generate PDF Agreement via Puppeteer
-    let pdfBuffer: Buffer;
-    const browserPath = getExecutablePath();
-    const browser = await puppeteer.launch({
-      executablePath: browserPath,
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-extensions']
-    });
-
-    const page = await browser.newPage();
-    const agreementHTML = getAgreementHTML(cleanName, agreementDate, isFull);
-    await page.setContent(agreementHTML, { waitUntil: 'domcontentloaded' });
-    pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' }
-    });
-    await browser.close();
-
-    // 2. Setup ZeptoMail Transporter
+    // 1. Setup ZeptoMail Transporter
     const transporter = nodemailer.createTransport(ZEPTO_CONFIG);
 
-    const safeFileName = cleanName.replace(/[^a-zA-Z0-9]/g, '_');
-    const pdfFileName = `FIQRTAALIM_Service_Agreement_${safeFileName}.pdf`;
-
-    const mailOptions = {
+    // 2. Client Welcome Email
+    const clientMailOptions = {
       from: ZEPTO_CONFIG.from,
       to: cleanEmail,
-      subject: `Your FIQRTAALIM Service Agreement & Seat Confirmation — ${cleanName}`,
+      subject: `FIQRTAALIM 1-1 Mentorship & Service Program — ${cleanName}`,
       html: getWelcomeEmailHTML(cleanName, amountStr, isFull),
-      attachments: [
-        {
-          filename: pdfFileName,
-          content: pdfBuffer,
-          contentType: 'application/pdf'
-        }
-      ]
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`[Agreement Sent] ✅ Sent to ${cleanName} <${cleanEmail}> via ZeptoMail (MessageId: ${info.messageId})`);
+    const clientInfo = await transporter.sendMail(clientMailOptions);
+    console.log(`[Email Sent] ✅ Sent to ${cleanName} <${cleanEmail}> (MessageId: ${clientInfo.messageId})`);
+
+    // 3. Admin Notification to team@fiqr.in
+    const adminMailOptions = {
+      from: ZEPTO_CONFIG.from,
+      to: 'team@fiqr.in',
+      subject: `[NEW LEAD] ${cleanName} filled Partnership Form (${plan?.toUpperCase() || 'INSTALLMENT'} - ₹${amountStr})`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 550px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+          <h3 style="color: #0f172a; margin-top: 0;">New Lead Captured on FIQRTAALIM Form</h3>
+          <p><strong>Name:</strong> ${cleanName}</p>
+          <p><strong>Email:</strong> <a href="mailto:${cleanEmail}">${cleanEmail}</a></p>
+          <p><strong>Phone:</strong> <a href="https://wa.me/91${cleanPhone}">+91 ${cleanPhone} (WhatsApp)</a></p>
+          <p><strong>Delivery City:</strong> ${cleanCity}</p>
+          <p><strong>Selected Plan:</strong> ${plan} (₹${amountStr})</p>
+          <p><strong>Date:</strong> ${agreementDate}</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(adminMailOptions).catch(err => console.error('Admin alert error:', err));
 
     return NextResponse.json({
       success: true,
-      messageId: info.messageId,
-      fileName: pdfFileName
+      messageId: clientInfo.messageId,
     });
   } catch (error: any) {
-    console.error('[Agreement Error] ❌ Failed to send agreement:', error);
+    console.error('[Agreement Error] ❌ Failed to process lead:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to send agreement email' },
       { status: 500 }
     );
   }
 }
+

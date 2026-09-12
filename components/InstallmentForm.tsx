@@ -100,7 +100,19 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
 
     if (!isFormValid) return;
 
-    // Open the official Agreement Review modal
+    // 1. Instantly capture lead data in the background (irrespective of payment)
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: cleanPhone,
+      city: formData.city.trim(),
+      plan: selectedPlan,
+      amount: formattedAmount,
+      date: todayFormatted,
+    };
+    triggerAgreementEmail(payload);
+
+    // 2. Open the official Agreement Review modal
     setShowAgreementModal(true);
   };
 
@@ -119,7 +131,7 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
       date: todayFormatted,
     };
 
-    // Trigger confirmation email in background
+    // Ensure email/lead trigger
     triggerAgreementEmail(payload);
 
     if (onSuccess) onSuccess(payload);
@@ -437,31 +449,40 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
 
               {/* Parties */}
               <div className="bg-[#1A1510] p-3 rounded-xl border border-[#E6CA85]/20 space-y-1 text-[11px]">
-                <p><strong>Service Provider:</strong> FIQRTAALIM, Mysuru, Karnataka, India.</p>
-                <p><strong>Client:</strong> <strong className="text-[#E6CA85]">{formData.name}</strong></p>
+                <p>This Service Agreement (“Agreement”) is made and entered into on this <strong>{todayFormatted}</strong>, by and between:</p>
+                <p><strong>Company Name:</strong> FIQRTAALIM (Hereinafter referred to as “Service Provider”)</p>
+                <p><strong>Client Name:</strong> <strong className="text-[#E6CA85]">{formData.name}</strong> (Hereinafter referred to as “Client”)</p>
                 <p className="text-[10px] text-[#F5EFE6]/70">
-                  Email: {formData.email} · Phone: +91 {cleanPhone} · Delivery City: {formData.city}
+                  Together referred to as the “Parties. ” · Email: {formData.email} · Phone: +91 {cleanPhone} · Delivery City: {formData.city}
                 </p>
               </div>
 
               {/* Section 1: Scope of Services */}
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider flex items-center gap-1.5">
-                  <span>1. Scope of Services & Deliverables</span>
+                  <span>1. Scope of Services</span>
                 </h4>
+                <p className="text-[11px] text-[#F5EFE6]/75">
+                  The Service Provider agrees to provide the following services to the Client under this Agreement:
+                </p>
                 <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#F5EFE6]/80">
-                  <li>Designing and building a custom high-converting Shopify website.</li>
-                  <li>Setting up Instagram & Facebook business accounts with Meta Pixel tracking.</li>
-                  <li>Setting up WhatsApp Business account & sales automation funnels.</li>
-                  <li>Complete integration of Razorpay payment gateway and Shiprocket logistics.</li>
-                  <li>1-to-1 dedicated mentorship sessions until the Client achieves confirmed sales.</li>
+                  <li>Designing and building a Shopify website.</li>
+                  <li>Setting up Instagram &amp; Facebook business accounts.</li>
+                  <li>Creating and configuring Meta Ad Manager with tracking pixels.</li>
+                  <li>Setting up WhatsApp Business account &amp; sales funnel.</li>
+                  <li>Consultation for pricing strategy.</li>
+                  <li>Consultation &amp; guidance for legal documents (KYC for Razorpay &amp; Shiprocket).</li>
+                  <li>Complete setup of Razorpay payment gateway and Shiprocket logistics account.</li>
+                  <li>Connecting Instagram, WhatsApp Business, and Meta Business Manager.</li>
+                  <li>Running initial advertising campaigns (ad budget borne by Client).</li>
+                  <li>Providing 1-to-1 mentorship until Client achieves confirmed sales.</li>
                   <li>
-                    <strong className="text-[#FFFDF8]">₹25,000 Opening Physical Inventory Kit (Included Free):</strong>
+                    <strong className="text-[#FFFDF8]">Supplying product inventory, consisting of:</strong>
                     <ul className="list-circle pl-4 mt-0.5 space-y-0.5 text-[#E6CA85]/90">
-                      <li>25 units of Tayammum Kits (Complete boxed set)</li>
-                      <li>25 sets of Traceable Islamic Kids Activity Books</li>
-                      <li>10 sets Hindi Dua Stickers + 10 sets English Dua Stickers</li>
-                      <li>Branded packaging material and free cargo dispatch to {formData.city}.</li>
+                      <li>40 sets of Traceable Kits</li>
+                      <li>10 sets of Hindi Dua Stickers</li>
+                      <li>10 sets of English Dua Stickers</li>
+                      <li>With Packaging material and cargo charges included in this.</li>
                     </ul>
                   </li>
                 </ul>
@@ -470,56 +491,132 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
               {/* Section 2: Fees & Payment Terms */}
               <div className="space-y-1.5 bg-[#17130E] p-3 rounded-xl border border-[#E6CA85]/25">
                 <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
-                  2. Fees & Payment Terms ({selectedPlan === 'installment' ? 'Half Payment' : 'Full Payment'})
+                  2. Fees &amp; Payment Terms
                 </h4>
                 <p className="text-[11px] text-[#F5EFE6]/90">
                   {selectedPlan === 'installment' ? (
                     <>
-                      The Client agrees to pay a total service fee of ₹29,899/-. The payment is structured in two stages:
+                      The Client agrees to pay a service fee of ₹29,899/- (Twenty-Nine Thousand Eight Hundred Ninety-Nine Only). This fee includes the above-mentioned product inventory. Advertising budget is not included and shall be borne solely by the Client. The payment shall be made in two installments:
                       <br />
-                      • <strong className="text-[#10B981]">Part 1 Payment: ₹15,000/-</strong> paid today upon signing to confirm seat and initiate dispatch of the ₹25,000 inventory kit.
+                      • <strong className="text-[#10B981]">Initial Payment: ₹15,000/- (Fifteen Thousand Only)</strong> has been paid upon signing this Agreement, in order to confirm the Client’s seat and dispatch the opening inventory kit.
                       <br />
-                      • <strong>Part 2 Remaining Balance: ₹14,899/-</strong> payable prior to the live ad campaign launch.
+                      • <strong>Remaining Balance: ₹14,899/- (Fourteen Thousand Eight Hundred Ninety-Nine Only)</strong> to be paid by the Client before live ad campaign launch. Services shall commence upon confirmation of initial payment.
                     </>
                   ) : (
                     <>
-                      The Client agrees to pay a one-time service fee of <strong className="text-[#10B981]">₹29,899/- (Full Payment)</strong>. This includes complete setup, mentorship until confirmed sales, and ₹25,000 opening product inventory.
+                      The Client agrees to pay a one-time service fee of <strong className="text-[#10B981]">₹29,899/- (Twenty-Nine Thousand Eight Hundred Ninety-Nine Only)</strong>. This fee includes the above-mentioned product inventory. Advertising budget is not included and shall be borne solely by the Client. Payment must be made in full in advance before commencement of services.
                     </>
                   )}
                 </p>
               </div>
 
-              {/* Section 3: Guarantee & Refund Policy */}
+              {/* Section 3: Service Guarantee */}
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
-                  3. 80% Money-Back Service Guarantee
+                  3. Service Guarantee
+                </h4>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#F5EFE6]/80">
+                  <li>The Service Provider guarantees to mentor and assist the Client until the Client achieves confirmed sales through their online store.</li>
+                  <li>Upon initiation of sales, the Service Provider’s obligation under this Agreement shall be deemed fulfilled, and the Service Provider shall exit the project.</li>
+                </ul>
+              </div>
+
+              {/* Section 4: Refund Policy */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  4. Refund Policy
+                </h4>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#F5EFE6]/80">
+                  <li>If the Service Provider fails to help the Client achieve sales, the Client shall be entitled to an 80% refund of the service fee.</li>
+                  <li>
+                    The refund is strictly subject to the following conditions:
+                    <ul className="list-circle pl-4 mt-0.5 space-y-0.5 text-[#F5EFE6]/70">
+                      <li>The Client must follow all strategies, mentorship guidelines, and instructions provided.</li>
+                      <li>The Client must allocate and spend the minimum agreed ad budget as instructed.</li>
+                      <li>The Client must not make unauthorized changes to the website, ads, pricing, or setup.</li>
+                      <li>The Client must provide all necessary documents, approvals, and access credentials on time.</li>
+                    </ul>
+                  </li>
+                  <li>If the Client fails to comply with the above conditions, the refund clause shall be considered null and void.</li>
+                </ul>
+              </div>
+
+              {/* Section 5: Client Responsibilities */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  5. Client Responsibilities
+                </h4>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#F5EFE6]/80">
+                  <li>Provide accurate business details, documents, and KYC information on time.</li>
+                  <li>Bear all costs related to advertising &amp; shipping.</li>
+                  <li>Not misuse, resell, or duplicate the mentorship services provided under this Agreement.</li>
+                  <li>Maintain transparency in all communications with the Service Provider.</li>
+                </ul>
+              </div>
+
+              {/* Section 6: Limitation of Liability */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  6. Limitation of Liability
+                </h4>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#F5EFE6]/80">
+                  <li>The Service Provider shall not be held liable for delays, losses, or failures caused by third-party platforms (Shopify, Razorpay, Shiprocket, Meta, etc.).</li>
+                  <li>The Service Provider shall not be responsible for product quality issues, delivery failures, or customer disputes once the provided inventory is handed over to the Client.</li>
+                </ul>
+              </div>
+
+              {/* Section 7: Termination */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  7. Termination
                 </h4>
                 <p className="text-[11px] text-[#F5EFE6]/80">
-                  The Service Provider guarantees 1-to-1 mentorship until the Client achieves confirmed sales. If the Service Provider fails to assist the Client in achieving sales after all instructed strategies are implemented, the Client is entitled to an 80% refund of the service fee.
+                  This Agreement may be terminated by either Party under the following conditions:
+                  <br />• By mutual written consent of both Parties.
+                  <br />• In case of breach of obligations by either Party.
+                  <br />If termination occurs due to the Client’s non-compliance, no refund shall be issued.
                 </p>
               </div>
 
-              {/* Section 4: Acknowledgment & Signature Seal */}
-              <div className="pt-2 border-t border-[#E6CA85]/20 flex items-center justify-between text-[11px]">
-                <div>
-                  <p className="font-bold text-[#FFFDF8]">FIQRTAALIM</p>
-                  <p className="text-[10px] text-[#F5EFE6]/60">Mysuru, Karnataka, India</p>
-                  <div className="mt-1">
-                    <svg className="h-7 w-auto" viewBox="0 0 160 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M 15 45 Q 30 10, 45 40 Q 55 5, 65 48 Q 75 25, 85 45 Q 95 15, 110 45 Q 130 40, 150 48" stroke="#E6CA85" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M 30 52 C 50 50, 85 48, 125 52" stroke="#E6CA85" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
+              {/* Section 8: Dispute Resolution */}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold text-[#E6CA85] uppercase tracking-wider">
+                  8. Dispute Resolution
+                </h4>
+                <p className="text-[11px] text-[#F5EFE6]/80">
+                  Any disputes arising under this Agreement shall first be resolved through mutual discussion. If unresolved, the matter shall fall under the jurisdiction of the courts in Mysore, Karnataka, India.
+                </p>
+              </div>
+
+              {/* Acknowledgment & Signature Seal */}
+              <div className="pt-3 border-t border-[#E6CA85]/20 space-y-2 text-[11px]">
+                <p className="font-bold text-[#E6CA85]">Acknowledgment &amp; Acceptance</p>
+                <p className="text-[10px] text-[#F5EFE6]/75 leading-relaxed text-justify">
+                  By making a successful payment of the service fee, the Client acknowledges that they have read, understood, and agreed to the terms and conditions outlined in this Agreement. The payment shall be deemed as full acceptance of this Agreement. All fees paid are strictly non-refundable under any circumstances except those mentioned under section 4. (Refund Policy), and the Client acknowledges that no refund, reversal, or cancellation request will be entertained once the payment is successfully processed. Agreement, and services shall commence thereafter.
+                </p>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-[#FFFDF8]">FIQRTAALIM</p>
+                    <p className="text-[10px] text-[#F5EFE6]/60">Mysuru, Karnataka.</p>
+                    <div className="mt-1">
+                      <svg className="h-8 w-auto" viewBox="0 0 160 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 28 58 Q 38 12, 48 42 Q 54 8, 60 52 Q 68 28, 78 46 Q 88 18, 98 48 Q 118 42, 138 50" stroke="#E6CA85" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M 38 64 C 60 62, 90 60, 125 64" stroke="#E6CA85" strokeWidth="1.8" strokeLinecap="round"/>
+                        <circle cx="130" cy="64" r="2" fill="#E6CA85" />
+                      </svg>
+                    </div>
+                    <p className="text-[10px] font-bold text-[#E6CA85] uppercase mt-0.5">MOHAMMED OMAR</p>
+                    <p className="text-[9px] text-[#F5EFE6]/60">Co founder &amp; CEO, Fiqrtaalim</p>
                   </div>
-                  <p className="text-[10px] font-bold text-[#E6CA85] uppercase mt-0.5">Mohammed Omar</p>
-                  <p className="text-[9px] text-[#F5EFE6]/60">Co-Founder & CEO, FIQRTAALIM</p>
-                </div>
-                <div className="text-right border border-[#E6CA85]/30 rounded-lg p-2 bg-[#17130E]/60">
-                  <span className="text-[9px] font-bold text-[#10B981] uppercase block">
-                    ✓ Verified Legal Amanah
-                  </span>
-                  <span className="text-[10px] text-[#F5EFE6]/80 font-mono">
-                    Client: {formData.name}
-                  </span>
+                  <div className="text-right border border-[#E6CA85]/30 rounded-lg p-2 bg-[#17130E]/60">
+                    <span className="text-[9px] font-bold text-[#10B981] uppercase block">
+                      ✓ Verified Legal Amanah
+                    </span>
+                    <span className="text-[10px] text-[#F5EFE6]/80 font-mono">
+                      Client: {formData.name}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
