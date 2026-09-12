@@ -43,14 +43,20 @@ try {
   }
 }
 
-// 3. Create PHP Agreement Sender in public/api/send-agreement.php
+// 3. Create PHP Endpoints in public/api/ and api/
 const phpApiDir = path.join(__dirname, '..', 'public', 'api');
 if (!fs.existsSync(phpApiDir)) fs.mkdirSync(phpApiDir, { recursive: true });
 
-const phpSource = fs.readFileSync(path.join(phpApiDir, 'send-agreement.php'), 'utf8');
 const rootApiDir = path.join(__dirname, '..', 'api');
 if (!fs.existsSync(rootApiDir)) fs.mkdirSync(rootApiDir, { recursive: true });
+
+const phpSource = fs.readFileSync(path.join(phpApiDir, 'send-agreement.php'), 'utf8');
 fs.writeFileSync(path.join(rootApiDir, 'send-agreement.php'), phpSource, 'utf8');
+
+if (fs.existsSync(path.join(phpApiDir, 'view-leads.php'))) {
+  const leadsViewerSource = fs.readFileSync(path.join(phpApiDir, 'view-leads.php'), 'utf8');
+  fs.writeFileSync(path.join(rootApiDir, 'view-leads.php'), leadsViewerSource, 'utf8');
+}
 
 // Copy out/ files into root or copy script
 console.log('3. Copying exported static files into public_html compatible structure...');
