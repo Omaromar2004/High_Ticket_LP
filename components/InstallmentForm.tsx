@@ -81,11 +81,18 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
   const sendAgreementEmail = async (payload: any) => {
     setEmailSending(true);
     try {
-      const res = await fetch('/api/send-agreement', {
+      let res = await fetch('/api/send-agreement.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        res = await fetch('/api/send-agreement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       const data = await res.json();
       console.log('Agreement email result:', data);
     } catch (err) {
