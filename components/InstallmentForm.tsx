@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   CheckCircle2,
   ShieldCheck,
@@ -47,6 +47,9 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
   const [redirecting, setRedirecting] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
 
+  // Anti-double-submission guard
+  const dispatchedRef = useRef<string | null>(null);
+
   // Validation logic
   const isNameValid = formData.name.trim().length >= 3;
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim());
@@ -77,110 +80,23 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
   };
 
   const triggerAgreementEmail = async (payload: any) => {
+    // Generate unique signature for this submission to strictly prevent double firing
+    const signature = `${payload.email}_${payload.phone}_${payload.plan}`;
+    if (dispatchedRef.current === signature) {
+      return;
+    }
+    dispatchedRef.current = signature;
+
     try {
-      // 1. Send to PHP backend to record lead and dispatch email
+      // Single unified dispatch to PHP backend (records lead in CSV/JSON, dispatches to Google Form & ZeptoMail)
       fetch('/api/send-agreement.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         keepalive: true,
       }).catch((e) => console.log('PHP endpoint notice:', e));
-
-      // 2. Direct client-side ZeptoMail backup (guarantees instant delivery even if server is busy)
-      const token = 'PHtE6r1YRu7r3mAm8BAJtKe6QMKtPI4n+OpufVZOsYpBC6QBTU1d/d4okGSwrRcvB/BCEPHKy4Jo4r+f5erXcT65NmcfXGqyqK3sx/VYSPOZsbq6x00etVsdfk3eUI/scdRq3CDfv9nbNA==';
-      const isFull = payload.plan === 'full';
-      const amountStr = isFull ? '29,899' : '15,000';
-      const payUrl = isFull ? 'https://rzp.io/rzp/M32rMCs9' : 'https://rzp.io/rzp/db1qFEB8';
-      const stageText = isFull ? 'full enrollment' : 'first installment';
-      const remainingNote = isFull ? '' : '<p style="margin:14px 0; font-size:14.5px;">The remaining balance of <strong>₹14,899/-</strong> will be payable in the second installment as agreed.</p>';
-
-      const clientHtml = `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc;padding:20px;color:#1e293b;">
-        <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-          <div style="background:#0C0B09;padding:24px;text-align:center;border-bottom:2px solid #E6CA85;">
-            <h1 style="color:#E6CA85;margin:0;font-size:22px;letter-spacing:2px;font-family:Georgia,serif;">FIQRTAALIM</h1>
-            <p style="color:#F5EFE6;margin:4px 0 0 0;font-size:13px;">1-1 Mentorship &amp; Service Program</p>
-          </div>
-          <div style="padding:28px;font-size:14.5px;line-height:1.6;color:#334155;">
-            <p style="font-weight:600;font-size:16px;color:#0f172a;margin-top:0;">Dear ${payload.name},</p>
-            <p><strong>Assalamu Alaikum,</strong></p>
-            <p>We are excited to officially welcome you to Fiqrtaalim’s 1-1 Mentorship &amp; Service Program.</p>
-            <p>Please find attached your Service Agreement in PDF format for your reference. This agreement outlines the complete scope of services, mentorship process, inventory details, refund policy, and our commitment to support you until initiation of sales is achieved, InshaAllah.</p>
-            <h3 style="color:#0f172a;margin:22px 0 8px 0;font-size:15px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">Payment &amp; Onboarding</h3>
-            <p>To initiate your onboarding, kindly proceed with the ${stageText} payment of <strong>₹${amountStr}/-</strong> using the secure payment option below:</p>
-            <div style="text-align:center;margin:18px 0;">
-              <a href="${payUrl}" style="background:#10B981;color:#ffffff;text-decoration:none;padding:13px 28px;border-radius:8px;font-weight:700;display:inline-block;">Make Secure Payment</a>
-              <p style="font-size:12px;color:#64748b;margin-top:6px;">If the button does not work, use this link:<br><a href="${payUrl}" style="color:#0284c7;">${payUrl}</a></p>
-            </div>
-            <h3 style="color:#0f172a;margin:22px 0 8px 0;font-size:15px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">Alternative Payment Options</h3>
-            <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:14px 16px;font-size:13.5px;margin:12px 0;">
-              <div><strong>Account Holder:</strong> FIQR</div>
-              <div><strong>Account Number:</strong> 50200103923234</div>
-              <div><strong>IFSC:</strong> HDFC0002568</div>
-              <div><strong>Branch:</strong> K R Mohalla – Mysore</div>
-              <div><strong>Account Type:</strong> Current Account</div>
-              <div><strong>MMID:</strong> 9240276</div>
-              <div><strong>UPI ID:</strong> 7829208722-3@ybl</div>
-              <div><strong>UPI Number:</strong> 7829208722</div>
-            </div>
-            ${remainingNote}
-            <p>Once the ${stageText} payment is completed, our team will immediately initiate the setup process, including Shopify website development, business account setups, inventory dispatch, and mentorship scheduling.</p>
-            <p>If you have any queries before making the payment, feel free to reply to this email.</p>
-            <p>We look forward to building your brand together and helping you achieve your goals successfully, InshaAllah.</p>
-            <p style="margin-top:24px;margin-bottom:0;">Warm Regards,<br><strong>Team FIQRTAALIM</strong></p>
-          </div>
-          <div style="background:#f1f5f9;padding:14px;text-align:center;font-size:12px;color:#64748b;">
-            © ${new Date().getFullYear()} FIQRTAALIM · 100% Halal E-Commerce Partnership
-          </div>
-        </div>
-      </body></html>`;
-
-      fetch('https://api.zeptomail.in/v1.1/email', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Zoho-enczapikey ' + token,
-        },
-        body: JSON.stringify({
-          from: { address: 'team@fiqr.in', name: 'FIQRTAALIM' },
-          to: [
-            { email_address: { address: payload.email, name: payload.name } },
-            { email_address: { address: 'team@fiqr.in', name: 'FIQRTAALIM Leads' } }
-          ],
-          subject: `FIQRTAALIM 1-1 Mentorship & Service Program — ${payload.name}`,
-          htmlbody: clientHtml,
-        }),
-        keepalive: true,
-      }).catch((e) => console.log('Direct Zepto notice:', e));
-
-      // 3. Direct Google Form trigger to activate user's Apps Script / WhatsApp / Email automation
-      try {
-        const gformData = new URLSearchParams();
-        gformData.append('entry.813229620', payload.name);
-        gformData.append('entry.199077193', 'Male');
-        gformData.append('entry.224170834', payload.email);
-        gformData.append('entry.1890214637', payload.phone);
-        gformData.append('entry.424963998', '1000/day');
-        gformData.append('entry.873081694', 'Right Now, Inshallah');
-        gformData.append(
-          'entry.1098580725',
-          payload.plan === 'full' ? '29,899/- [Full Payment]' : '15,000/-[hafl Payment]'
-        );
-
-        fetch('https://docs.google.com/forms/d/e/1FAIpQLSf93nJwTsFthMCbO4pCtPvvAlrR7LyDYBNgV4I9ih8EC_VNFA/formResponse', {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: gformData.toString(),
-          keepalive: true,
-        }).catch((e) => console.log('Google form sync notice:', e));
-      } catch (gfErr) {
-        console.log('Google form error:', gfErr);
-      }
     } catch (err) {
-      console.error('Email dispatch error:', err);
+      console.error('Lead dispatch error:', err);
     }
   };
 
@@ -220,9 +136,6 @@ export default function InstallmentForm({ selectedPlan, onPlanChange, onSuccess 
       amount: formattedAmount,
       date: todayFormatted,
     };
-
-    // Ensure email/lead trigger
-    triggerAgreementEmail(payload);
 
     if (onSuccess) onSuccess(payload);
 
