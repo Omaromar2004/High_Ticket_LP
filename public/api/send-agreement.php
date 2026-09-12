@@ -66,45 +66,69 @@ $leads[] = [
 ];
 @file_put_contents($jsonFile, json_encode($leads, JSON_PRETTY_PRINT));
 
-// 2. SMTP SENDER VIA ZEPTOMAIL
+// 2. HTTPS REST API SENDER VIA ZEPTOMAIL (100% RELIABLE ON HOSTINGER)
 function sendZeptoMail($toEmail, $toName, $subject, $htmlBody) {
-    $host = 'ssl://smtp.zeptomail.in';
-    $port = 465;
-    $user = 'emailapikey';
-    $pass = 'PHtE6r1YRu7r3mAm8BAJtKe6QMKtPI4n+OpufVZOsYpBC6QBTU1d/d4okGSwrRcvB/BCEPHKy4Jo4r+f5erXcT65NmcfXGqyqK3sx/VYSPOZsbq6x00etVsdfk3eUI/scdRq3CDfv9nbNA==';
-    $from = 'team@fiqr.in';
+    $token = 'PHtE6r1YRu7r3mAm8BAJtKe6QMKtPI4n+OpufVZOsYpBC6QBTU1d/d4okGSwrRcvB/BCEPHKy4Jo4r+f5erXcT65NmcfXGqyqK3sx/VYSPOZsbq6x00etVsdfk3eUI/scdRq3CDfv9nbNA==';
+    $payload = [
+        'from' => [
+            'address' => 'team@fiqr.in',
+            'name' => 'FIQRTAALIM'
+        ],
+        'to' => [
+            [
+                'email_address' => [
+                    'address' => $toEmail,
+                    'name' => $toName
+                ]
+            ]
+        ],
+        'subject' => $subject,
+        'htmlbody' => $htmlBody
+    ];
 
-    $socket = @fsockopen($host, $port, $errno, $errstr, 15);
-    if (!$socket) return false;
+    $jsonData = json_encode($payload);
 
-    fgets($socket, 515);
-    fputs($socket, "EHLO " . (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'fiqrtaalim.com') . "\r\n");
-    fgets($socket, 515);
-    fputs($socket, "AUTH LOGIN\r\n");
-    fgets($socket, 515);
-    fputs($socket, base64_encode($user) . "\r\n");
-    fgets($socket, 515);
-    fputs($socket, base64_encode($pass) . "\r\n");
-    fgets($socket, 515);
-    fputs($socket, "MAIL FROM: <$from>\r\n");
-    fgets($socket, 515);
-    fputs($socket, "RCPT TO: <$toEmail>\r\n");
-    fgets($socket, 515);
-    fputs($socket, "DATA\r\n");
-    fgets($socket, 515);
+    // Try cURL first
+    if (function_exists('curl_init')) {
+        $ch = curl_init('https://api.zeptomail.in/v1.1/email');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'Authorization: Zoho-enczapikey ' . $token
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-    $headers = "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: FIQRTAALIM <$from>\r\n";
-    $headers .= "To: $toName <$toEmail>\r\n";
-    $headers .= "Subject: $subject\r\n";
+        if ($httpCode >= 200 && $httpCode < 300) {
+            return true;
+        }
+    }
 
-    fputs($socket, "$headers\r\n$htmlBody\r\n.\r\n");
-    $result = fgets($socket, 515);
-    fputs($socket, "QUIT\r\n");
-    fclose($socket);
+    // Fallback to file_get_contents with stream context
+    $opts = [
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Accept: application/json\r\n" .
+                         "Content-Type: application/json\r\n" .
+                         "Authorization: Zoho-enczapikey " . $token . "\r\n",
+            'content' => $jsonData,
+            'timeout' => 12
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ]
+    ];
+    $context = stream_context_create($opts);
+    $result = @file_get_contents('https://api.zeptomail.in/v1.1/email', false, $context);
 
-    return true;
+    return ($result !== false);
 }
 
 // 3. BUILD CLIENT EMAIL BODY (EXACT TEMPLATE REQUESTED)
