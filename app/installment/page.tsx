@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import InstallmentForm from '@/components/InstallmentForm';
 import {
   Clock,
@@ -217,18 +216,13 @@ export default function InstallmentPage() {
           )}
         </div>
 
-        {/* Minimal Islamic Quote & Return Link */}
-        <div className="text-center space-y-2 text-[11px] text-[#F5EFE6]/60">
+        {/* Minimal Islamic Quote */}
+        <div className="text-center space-y-1 text-[11px] text-[#F5EFE6]/60">
           <p className="ayah text-sm text-[#E6CA85] opacity-90">
             وَأَحَلَّ ٱللَّهُ ٱلْبَيْعَ
           </p>
           <p className="text-[10px] text-[#F5EFE6]/50">
             &ldquo;And Allah has permitted trade&rdquo; · Al-Baqarah 2:275
-          </p>
-          <p className="pt-1">
-            <Link href="/" className="text-[#E6CA85] hover:underline font-medium">
-              ← Return to Main Page
-            </Link>
           </p>
         </div>
       </div>
